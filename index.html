@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Simulateur de financement — Tessan</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f7f5;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem}
+:root{
+  --tessan-green:#1D9E75;
+  --tessan-green-dark:#0F6E56;
+  --tessan-green-light:#E1F5EE;
+  --tessan-green-mid:#9FE1CB;
+  --bg:#ffffff;
+  --bg2:#f5f7f5;
+  --border:#e0e5e0;
+  --border2:#c8d4c8;
+  --text:#1a1a1a;
+  --text2:#555f55;
+  --text3:#8a9a8a;
+  --radius:10px;
+  --radius-sm:7px;
+}
+.container{width:100%;max-width:560px}
+.header{display:flex;align-items:center;gap:14px;margin-bottom:1.75rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)}
+.header img{height:36px;width:auto}
+.header-divider{width:1px;height:28px;background:var(--border2)}
+.header-text{font-size:13px;color:var(--text2)}
+h2{font-size:20px;font-weight:600;color:var(--text);margin-bottom:3px}
+.sub{font-size:13px;color:var(--text2);margin-bottom:1.25rem}
+.card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:12px}
+label{font-size:13px;color:var(--text2);display:block;margin-bottom:6px}
+.field{margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.input-euro{display:flex;align-items:center;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;background:var(--bg);transition:border-color .15s}
+.input-euro:focus-within{border-color:var(--tessan-green)}
+.euro-sym{padding:0 10px;font-size:14px;color:var(--text2);background:#f0f5f0;border-right:1px solid var(--border);height:38px;display:flex;align-items:center;flex-shrink:0}
+.input-euro input{border:none;outline:none;padding:0 10px;height:38px;font-size:15px;background:transparent;color:var(--text);width:100%;min-width:0}
+.input-euro input::-webkit-inner-spin-button{-webkit-appearance:none}
+.mode-tabs{display:flex;gap:8px;margin-bottom:1.25rem}
+.tab{flex:1;padding:9px 12px;background:#f0f5f0;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;color:var(--text2);cursor:pointer;text-align:center;transition:all .15s;font-family:inherit}
+.tab.active{background:var(--tessan-green-light);border-color:var(--tessan-green);color:var(--tessan-green-dark);font-weight:600}
+.slider-row{display:flex;align-items:center;gap:10px}
+.slider-row input[type=range]{flex:1;accent-color:var(--tessan-green);height:4px}
+.slider-val{font-size:14px;font-weight:600;min-width:72px;text-align:right;color:var(--text)}
+.taux-info{font-size:11px;color:var(--text3);margin-top:6px;font-style:italic}
+.duree-marks{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:4px;padding:0 2px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:1rem}
+.metric{background:#f5f7f5;border-radius:var(--radius-sm);padding:.9rem;text-align:center}
+.metric .lbl{font-size:11px;color:var(--text2);margin-bottom:4px}
+.metric .val{font-size:20px;font-weight:600;color:var(--text)}
+.metric .unit{font-size:11px;color:var(--text2)}
+.highlight{background:var(--tessan-green-light);border:1px solid var(--tessan-green-mid);border-radius:var(--radius-sm);padding:.9rem;text-align:center}
+.highlight .lbl{font-size:11px;color:var(--tessan-green-dark);margin-bottom:4px}
+.highlight .val{font-size:26px;font-weight:700;color:var(--tessan-green-dark)}
+.highlight .unit{font-size:11px;color:var(--tessan-green)}
+.divider{border:none;border-top:1px solid var(--border);margin:1.25rem 0}
+.amort-btn{width:100%;padding:9px;background:transparent;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;color:var(--text2);cursor:pointer;font-family:inherit;transition:background .15s}
+.amort-btn:hover{background:#f0f5f0}
+.amort-wrap{overflow-x:auto;margin-top:1rem}
+.amort-table{width:100%;border-collapse:collapse;font-size:12px}
+.amort-table th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border2);font-weight:600;color:var(--text2);background:#f5f7f5}
+.amort-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
+.amort-table tr:last-child td{border-bottom:none;font-weight:600;background:#f0f5f0}
+.warning{font-size:12px;color:#b45309;margin-top:6px}
+.footer{text-align:center;font-size:11px;color:var(--text3);margin-top:1.5rem}
+@media(max-width:480px){
+  .grid3{grid-template-columns:1fr 1fr;} 
+  .grid3 .highlight{grid-column:span 2;}
+  body{padding:1rem .75rem}
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <img src="https://cdn.prod.website-files.com/66b60a40346a2a32aeadb205/6814946c34e398e65a59f5f8_LOGO-VERT.svg" alt="Tessan"/>
+    <div class="header-divider"></div>
+    <span class="header-text">Simulateur de financement</span>
+  </div>
+
+  <h2>Simulateur de financement</h2>
+  <p class="sub">Crédit amortissable — mensualités constantes</p>
+
+  <div class="card">
+    <div class="field">
+      <label>Montant du financement</label>
+      <div class="input-euro">
+        <span class="euro-sym">€</span>
+        <input type="number" id="montant" value="10000" min="500" max="500000" step="100"/>
+      </div>
+    </div>
+    <div class="field">
+      <label>TAEG — <strong id="taux-display">5,9 %</strong></label>
+      <div class="slider-row">
+        <input type="range" id="taux" min="1" max="15" step="0.1" value="5.9"/>
+        <span class="slider-val" id="taux-out">5,9 %</span>
+      </div>
+      <p class="taux-info">Taux indicatif — crédit professionnel. À vérifier avec votre partenaire bancaire.</p>
+    </div>
+  </div>
+
+  <div class="mode-tabs">
+    <button class="tab active" id="tab-duree" onclick="setMode('duree')">Choisir la durée</button>
+    <button class="tab" id="tab-mensualite" onclick="setMode('mensualite')">Choisir la mensualité</button>
+  </div>
+
+  <div class="card" id="panel-duree">
+    <label>Durée du crédit — <strong id="duree-display">36 mois (3 ans)</strong></label>
+    <div class="slider-row">
+      <input type="range" id="duree" min="6" max="144" step="6" value="36"/>
+      <span class="slider-val" id="duree-out">36 mois</span>
+    </div>
+    <div class="duree-marks">
+      <span>6 mois</span><span>2 ans</span><span>4 ans</span><span>6 ans</span><span>8 ans</span><span>10 ans</span><span>12 ans</span>
+    </div>
+  </div>
+
+  <div class="card" id="panel-mensualite" style="display:none">
+    <div class="field">
+      <label>Mensualité souhaitée</label>
+      <div class="input-euro">
+        <span class="euro-sym">€</span>
+        <input type="number" id="mensualite-input" value="300" min="10" max="99999" step="5"/>
+      </div>
+    </div>
+    <p id="warn-mensualite" class="warning" style="display:none"></p>
+  </div>
+
+  <hr class="divider"/>
+
+  <div class="grid3">
+    <div class="highlight">
+      <p class="lbl">Mensualité</p>
+      <p class="val" id="res-mens">—</p>
+      <p class="unit">€ / mois</p>
+    </div>
+    <div class="metric">
+      <p class="lbl">Durée</p>
+      <p class="val" id="res-duree">—</p>
+      <p class="unit">mois</p>
+    </div>
+    <div class="metric">
+      <p class="lbl">Coût du crédit</p>
+      <p class="val" id="res-cout">—</p>
+      <p class="unit">€ d'intérêts</p>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="metric">
+      <p class="lbl">Total remboursé</p>
+      <p class="val" id="res-total">—</p>
+      <p class="unit">€</p>
+    </div>
+    <div class="metric">
+      <p class="lbl">Intérêts / mois</p>
+      <p class="val" id="res-cout-mois">—</p>
+      <p class="unit">€ / mois</p>
+    </div>
+  </div>
+
+  <button class="amort-btn" id="amort-toggle" onclick="toggleAmort()">Voir le tableau d'amortissement ▼</button>
+  <div id="amort-wrap" class="amort-wrap" style="display:none">
+    <table class="amort-table">
+      <thead><tr><th>Mois</th><th>Mensualité</th><th>Capital</th><th>Intérêts</th><th>Capital restant</th></tr></thead>
+      <tbody id="amort-body"></tbody>
+    </table>
+  </div>
+
+  <p class="footer">Outil interne Tessan — à usage commercial uniquement. Simulation non contractuelle.</p>
+</div>
+
+<script>
+let mode='duree',amortOpen=false;
+function setMode(m){
+  mode=m;
+  document.getElementById('tab-duree').className='tab'+(m==='duree'?' active':'');
+  document.getElementById('tab-mensualite').className='tab'+(m==='mensualite'?' active':'');
+  document.getElementById('panel-duree').style.display=m==='duree'?'block':'none';
+  document.getElementById('panel-mensualite').style.display=m==='mensualite'?'block':'none';
+  calc();
+}
+function fmt(n){return n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function annees(n){
+  if(n<12)return n+' mois';
+  const a=Math.floor(n/12),m=n%12;
+  return a+' an'+(a>1?'s':'')+(m>0?' '+m+' mois':'');
+}
+function calc(){
+  const M=parseFloat(document.getElementById('montant').value)||10000;
+  const t=parseFloat(document.getElementById('taux').value)||5.9;
+  const r=t/100/12;
+  let mens,n;
+  const warn=document.getElementById('warn-mensualite');
+  if(mode==='duree'){
+    n=parseInt(document.getElementById('duree').value)||36;
+    mens=r===0?M/n:M*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);
+    document.getElementById('res-mens').textContent=fmt(mens);
+    document.getElementById('res-duree').textContent=n;
+    document.getElementById('duree-display').textContent=n+' mois ('+annees(n)+')';
+    document.getElementById('duree-out').textContent=n+' mois';
+  } else {
+    mens=parseFloat(document.getElementById('mensualite-input').value)||300;
+    const mMin=M*r;
+    if(mens<=mMin){
+      warn.style.display='block';
+      warn.textContent='Mensualité trop basse. Minimum : '+fmt(mMin)+'€';
+      ['res-mens','res-duree','res-cout','res-total','res-cout-mois'].forEach(id=>document.getElementById(id).textContent='—');
+      return;
+    }
+    warn.style.display='none';
+    n=r===0?Math.ceil(M/mens):Math.ceil(-Math.log(1-M*r/mens)/Math.log(1+r));
+    document.getElementById('res-mens').textContent=fmt(mens);
+    document.getElementById('res-duree').textContent=n+' ('+annees(n)+')';
+  }
+  const total=mens*n,cout=total-M;
+  document.getElementById('res-cout').textContent=fmt(cout);
+  document.getElementById('res-total').textContent=fmt(total);
+  document.getElementById('res-cout-mois').textContent=fmt(cout/n);
+  buildAmort(M,r,mens,n);
+}
+function buildAmort(M,r,mens,n){
+  const tbody=document.getElementById('amort-body');
+  tbody.innerHTML='';
+  let cap=M;
+  for(let i=1;i<=n;i++){
+    const int=cap*r;
+    let cp=mens-int;
+    if(i===n)cp=cap;
+    cap-=cp;if(cap<0)cap=0;
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td>'+i+'</td><td>'+fmt(mens)+'</td><td>'+fmt(cp)+'</td><td>'+fmt(int)+'</td><td>'+fmt(Math.max(0,cap))+'</td>';
+    tbody.appendChild(tr);
+  }
+}
+function toggleAmort(){
+  amortOpen=!amortOpen;
+  document.getElementById('amort-wrap').style.display=amortOpen?'block':'none';
+  document.getElementById('amort-toggle').textContent=amortOpen?"Masquer le tableau d'amortissement ▲":"Voir le tableau d'amortissement ▼";
+}
+document.getElementById('taux').oninput=function(){
+  const v=parseFloat(this.value).toFixed(1);
+  document.getElementById('taux-out').textContent=v.replace('.',',')+' %';
+  document.getElementById('taux-display').textContent=v.replace('.',',')+' %';
+  calc();
+};
+document.getElementById('duree').oninput=function(){calc();};
+document.getElementById('montant').oninput=calc;
+document.getElementById('mensualite-input').oninput=calc;
+calc();
+</script>
+</body>
+</html>
