@@ -65,9 +65,10 @@ label{font-size:13px;color:var(--text2);display:block;margin-bottom:6px}
 .amort-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text)}
 .amort-table tr:last-child td{border-bottom:none;font-weight:600;background:#f0f5f0}
 .warning{font-size:12px;color:#b45309;margin-top:6px}
+.palier-info{font-size:12px;color:var(--tessan-green-dark);background:var(--tessan-green-light);border:1px solid var(--tessan-green-mid);border-radius:var(--radius-sm);padding:8px 10px;margin-top:8px}
 .footer{text-align:center;font-size:11px;color:var(--text3);margin-top:1.5rem}
 @media(max-width:480px){
-  .grid3{grid-template-columns:1fr 1fr;} 
+  .grid3{grid-template-columns:1fr 1fr;}
   .grid3 .highlight{grid-column:span 2;}
   body{padding:1rem .75rem}
 }
@@ -126,15 +127,16 @@ label{font-size:13px;color:var(--text2);display:block;margin-bottom:6px}
         <span class="euro-sym">€</span>
         <input type="number" id="mensualite-input" value="300" min="10" max="99999" step="5"/>
       </div>
+      <p id="warn-mensualite" class="warning" style="display:none"></p>
+      <p id="palier-info" class="palier-info" style="display:none"></p>
     </div>
-    <p id="warn-mensualite" class="warning" style="display:none"></p>
   </div>
 
   <hr class="divider"/>
 
   <div class="grid3">
     <div class="highlight">
-      <p class="lbl">Mensualité</p>
+      <p class="lbl">Mensualité réelle</p>
       <p class="val" id="res-mens">—</p>
       <p class="unit">€ / mois</p>
     </div>
@@ -174,7 +176,11 @@ label{font-size:13px;color:var(--text2);display:block;margin-bottom:6px}
 </div>
 
 <script>
-let mode='duree',amortOpen=false;
+// Paliers standards bancaires (en mois)
+var PALIERS = [12,24,36,48,60,72,84,96,108,120,132,144];
+
+let mode='duree', amortOpen=false;
+
 function setMode(m){
   mode=m;
   document.getElementById('tab-duree').className='tab'+(m==='duree'?' active':'');
@@ -183,45 +189,87 @@ function setMode(m){
   document.getElementById('panel-mensualite').style.display=m==='mensualite'?'block':'none';
   calc();
 }
+
 function fmt(n){return n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
 function annees(n){
-  if(n<12)return n+' mois';
-  const a=Math.floor(n/12),m=n%12;
+  if(n<12) return n+' mois';
+  const a=Math.floor(n/12), m=n%12;
   return a+' an'+(a>1?'s':'')+(m>0?' '+m+' mois':'');
 }
+
+// Trouve le palier standard >= n
+function palierSuperieur(n){
+  for(var i=0;i<PALIERS.length;i++){
+    if(PALIERS[i]>=n) return PALIERS[i];
+  }
+  return PALIERS[PALIERS.length-1];
+}
+
+function mensualite(M, r, n){
+  if(r===0) return M/n;
+  return M*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);
+}
+
 function calc(){
   const M=parseFloat(document.getElementById('montant').value)||10000;
   const t=parseFloat(document.getElementById('taux').value)||5.9;
   const r=t/100/12;
-  let mens,n;
+  let mens, n;
   const warn=document.getElementById('warn-mensualite');
+  const palierInfo=document.getElementById('palier-info');
+
   if(mode==='duree'){
     n=parseInt(document.getElementById('duree').value)||36;
-    mens=r===0?M/n:M*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);
+    mens=mensualite(M,r,n);
     document.getElementById('res-mens').textContent=fmt(mens);
     document.getElementById('res-duree').textContent=n;
     document.getElementById('duree-display').textContent=n+' mois ('+annees(n)+')';
     document.getElementById('duree-out').textContent=n+' mois';
+    warn.style.display='none';
+    palierInfo.style.display='none';
   } else {
-    mens=parseFloat(document.getElementById('mensualite-input').value)||300;
+    const mensSaisie=parseFloat(document.getElementById('mensualite-input').value)||300;
     const mMin=M*r;
-    if(mens<=mMin){
+
+    if(mensSaisie<=mMin){
       warn.style.display='block';
       warn.textContent='Mensualité trop basse. Minimum : '+fmt(mMin)+'€';
+      palierInfo.style.display='none';
       ['res-mens','res-duree','res-cout','res-total','res-cout-mois'].forEach(id=>document.getElementById(id).textContent='—');
       return;
     }
     warn.style.display='none';
-    n=r===0?Math.ceil(M/mens):Math.ceil(-Math.log(1-M*r/mens)/Math.log(1+r));
+
+    // Durée exacte (non arrondie)
+    const nExact = r===0 ? M/mensSaisie : -Math.log(1-M*r/mensSaisie)/Math.log(1+r);
+
+    // Palier bancaire supérieur
+    n = palierSuperieur(Math.ceil(nExact));
+
+    // Mensualité réelle recalculée sur ce palier
+    mens = mensualite(M, r, n);
+
+    // Info si on a arrondi
+    const nExactArrondi = Math.ceil(nExact);
+    if(n > nExactArrondi){
+      palierInfo.style.display='block';
+      palierInfo.textContent='Durée arrondie au palier bancaire standard le plus proche (' + nExactArrondi + ' → ' + n + ' mois). Mensualité réelle recalculée à ' + fmt(mens) + '€.';
+    } else {
+      palierInfo.style.display='none';
+    }
+
     document.getElementById('res-mens').textContent=fmt(mens);
     document.getElementById('res-duree').textContent=n+' ('+annees(n)+')';
   }
-  const total=mens*n,cout=total-M;
+
+  const total=mens*n, cout=total-M;
   document.getElementById('res-cout').textContent=fmt(cout);
   document.getElementById('res-total').textContent=fmt(total);
   document.getElementById('res-cout-mois').textContent=fmt(cout/n);
   buildAmort(M,r,mens,n);
 }
+
 function buildAmort(M,r,mens,n){
   const tbody=document.getElementById('amort-body');
   tbody.innerHTML='';
@@ -229,18 +277,20 @@ function buildAmort(M,r,mens,n){
   for(let i=1;i<=n;i++){
     const int=cap*r;
     let cp=mens-int;
-    if(i===n)cp=cap;
-    cap-=cp;if(cap<0)cap=0;
+    if(i===n) cp=cap;
+    cap-=cp; if(cap<0) cap=0;
     const tr=document.createElement('tr');
     tr.innerHTML='<td>'+i+'</td><td>'+fmt(mens)+'</td><td>'+fmt(cp)+'</td><td>'+fmt(int)+'</td><td>'+fmt(Math.max(0,cap))+'</td>';
     tbody.appendChild(tr);
   }
 }
+
 function toggleAmort(){
   amortOpen=!amortOpen;
   document.getElementById('amort-wrap').style.display=amortOpen?'block':'none';
   document.getElementById('amort-toggle').textContent=amortOpen?"Masquer le tableau d'amortissement ▲":"Voir le tableau d'amortissement ▼";
 }
+
 document.getElementById('taux').oninput=function(){
   const v=parseFloat(this.value).toFixed(1);
   document.getElementById('taux-out').textContent=v.replace('.',',')+' %';
